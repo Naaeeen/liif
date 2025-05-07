@@ -1,0 +1,61 @@
+train dataset: size=200
+  inp: shape=(3, 64, 64)
+  coord: shape=(4096, 2)
+  cell: shape=(4096, 2)
+  gt: shape=(4096, 3)
+val dataset: size=20
+  inp: shape=(3, 64, 64)
+  coord: shape=(4096, 2)
+  cell: shape=(4096, 2)
+  gt: shape=(4096, 3)
+model: #params=1.6M
+epoch 1/50, train: loss=0.1921, val: psnr=22.6443, 15.5s 15.5s/12.9m
+epoch 2/50, train: loss=0.0930, val: psnr=23.8701, 14.8s 30.3s/12.6m
+epoch 3/50, train: loss=0.0813, val: psnr=24.8593, 14.6s 44.9s/12.5m
+epoch 4/50, train: loss=0.0725, val: psnr=25.7056, 16.3s 1.0m/12.7m
+epoch 5/50, train: loss=0.0636, val: psnr=26.3003, 16.4s 1.3m/12.9m
+epoch 6/50, train: loss=0.0607, val: psnr=27.7419, 18.4s 1.6m/13.3m
+epoch 7/50, train: loss=0.0567, val: psnr=26.5910, 17.3s 1.9m/13.5m
+epoch 8/50, train: loss=0.0587, val: psnr=22.7408, 15.1s 2.1m/13.4m
+epoch 9/50, train: loss=0.0594, val: psnr=27.3297, 15.0s 2.4m/13.3m
+epoch 10/50, train: loss=0.0504, val: psnr=28.1653, 16.4s 2.7m/13.3m
+epoch 11/50, train: loss=0.0504, val: psnr=27.5916, 16.2s 2.9m/13.3m
+epoch 12/50, train: loss=0.0484, val: psnr=27.1444, 15.2s 3.2m/13.3m
+epoch 13/50, train: loss=0.0481, val: psnr=29.9226, 16.1s 3.5m/13.3m
+epoch 14/50, train: loss=0.0493, val: psnr=26.9302, 15.5s 3.7m/13.3m
+epoch 15/50, train: loss=0.0472, val: psnr=27.0046, 15.0s 4.0m/13.2m
+epoch 16/50, train: loss=0.0463, val: psnr=28.0153, 15.2s 4.2m/13.2m
+epoch 17/50, train: loss=0.0457, val: psnr=28.0762, 15.1s 4.5m/13.1m
+epoch 18/50, train: loss=0.0443, val: psnr=29.0898, 16.1s 4.7m/13.2m
+epoch 19/50, train: loss=0.0443, val: psnr=29.0758, 17.1s 5.0m/13.2m
+epoch 20/50, train: loss=0.0458, val: psnr=28.0447, 17.8s 5.3m/13.3m
+epoch 21/50, train: loss=0.0477, val: psnr=28.3718, 17.1s 5.6m/13.3m
+epoch 22/50, train: loss=0.0433, val: psnr=30.3037, 15.7s 5.9m/13.3m
+epoch 23/50, train: loss=0.0454, val: psnr=28.5449, 15.9s 6.1m/13.3m
+epoch 24/50, train: loss=0.0444, val: psnr=28.3272, 15.3s 6.4m/13.3m
+epoch 25/50, train: loss=0.0444, val: psnr=27.1619, 17.3s 6.7m/13.4m
+epoch 26/50, train: loss=0.0443, val: psnr=28.5681, 18.4s 7.0m/13.4m
+epoch 27/50, train: loss=0.0415, val: psnr=31.4201, 17.4s 7.3m/13.5m
+epoch 28/50, train: loss=0.0430, val: psnr=30.2124, 14.9s 7.5m/13.4m
+epoch 29/50, train: loss=0.0418, val: psnr=30.3362, 14.4s 7.8m/13.4m
+epoch 30/50, train: loss=0.0422, val: psnr=31.6616, 14.9s 8.0m/13.3m
+epoch 31/50, train: loss=0.0411, val: psnr=29.4881, 14.6s 8.3m/13.3m
+epoch 32/50, train: loss=0.0403, val: psnr=29.6487, 14.5s 8.5m/13.3m
+epoch 33/50, train: loss=0.0394, val: psnr=32.0785, 14.5s 8.7m/13.2m
+epoch 34/50, train: loss=0.0388, val: psnr=29.0197, 14.4s 9.0m/13.2m
+epoch 35/50, train: loss=0.0400, val: psnr=28.7312, 15.1s 9.2m/13.2m
+epoch 36/50, train: loss=0.0382, val: psnr=29.2947, 16.4s 9.5m/13.2m
+epoch 37/50, train: loss=0.0374, val: psnr=29.7628, 15.1s 9.8m/13.2m
+epoch 38/50, train: loss=0.0397, val: psnr=28.7385, 14.9s 10.0m/13.2m
+epoch 39/50, train: loss=0.0389, val: psnr=28.5599, 15.7s 10.3m/13.2m
+epoch 40/50, train: loss=0.0393, val: psnr=29.5735, 17.0s 10.5m/13.2m
+epoch 41/50, train: loss=0.0372, val: psnr=29.4518, 16.7s 10.8m/13.2m
+epoch 42/50, train: loss=0.0406, val: psnr=29.2020, 15.2s 11.1m/13.2m
+epoch 43/50, train: loss=0.0393, val: psnr=31.2060, 14.9s 11.3m/13.2m
+epoch 44/50, train: loss=0.0376, val: psnr=30.1285, 15.0s 11.6m/13.2m
+epoch 45/50, train: loss=0.0365, val: psnr=30.7734, 15.8s 11.8m/13.2m
+epoch 46/50, train: loss=0.0378, val: psnr=27.4513, 15.5s 12.1m/13.1m
+epoch 47/50, train: loss=0.0420, val: psnr=28.1947, 16.8s 12.4m/13.2m
+epoch 48/50, train: loss=0.0365, val: psnr=29.7005, 16.0s 12.6m/13.2m
+epoch 49/50, train: loss=0.0373, val: psnr=29.3083, 15.6s 12.9m/13.2m
+epoch 50/50, train: loss=0.0395, val: psnr=30.5013, 15.1s 13.2m/13.2m
