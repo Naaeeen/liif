@@ -206,3 +206,28 @@ class SRImplicitUniformVaried(Dataset):
             'cell': cell,
             'gt': hr_rgb
         }
+# ------------------------------------------------------------
+#  A pass‑through wrapper for single‑image INR training
+# ------------------------------------------------------------
+from torch.utils.data import Dataset
+from datasets import register
+
+@register('sr-implicit-uniform-random')
+class SRImplicitUniformRandom(Dataset):
+    """
+    A minimal wrapper that simply forwards the dictionary returned
+    by an underlying dataset (e.g., 'single-npy').
+    It exists only so the YAML field 'wrapper: sr-implicit-uniform-random'
+    can be resolved by datasets.make().
+    """
+
+    def __init__(self, dataset, **kwargs):
+        # kwargs kept for compatibility but unused
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)  # usually 1 for single-image
+
+    def __getitem__(self, idx):
+        # underlying dataset already provides {'inp','coord','cell','gt'}
+        return self.dataset[idx]

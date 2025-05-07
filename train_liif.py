@@ -22,6 +22,7 @@
 """
 
 import argparse
+import io
 import os
 
 import yaml
@@ -205,6 +206,59 @@ def main(config_, save_path):
         log(', '.join(log_info))
         writer.flush()
 
+def evaluate_l1(val_loader, model, loss_fn, config):
+    """仅前向传播，返回整个 val_loader 的平均 L1 loss"""
+    model.eval()
+    val_loss = utils.Averager()
+
+    # 准备归一化用的张量
+    dn = config['data_norm']
+    inp_sub = torch.FloatTensor(dn['inp']['sub']).view(1, -1, 1, 1).cuda()
+    inp_div = torch.FloatTensor(dn['inp']['div']).view(1, -1, 1, 1).cuda()
+    gt_sub  = torch.FloatTensor(dn['gt']['sub']).view(1, 1, -1).cuda()
+    gt_div  = torch.FloatTensor(dn['gt']['div']).view(1, 1, -1).cuda()
+
+    with torch.no_grad():
+        for batch in val_loader:
+            for k, v in batch.items():
+                batch[k] = v.cuda()
+
+            inp  = (batch['inp'] - inp_sub) / inp_div
+            pred = model(inp, batch['coord'], batch['cell'])
+            gt   = (batch['gt'] - gt_sub) / gt_div
+            val_loss.add(loss_fn(pred, gt).item())
+
+    return val_loss.item()
+
+
+def run_once(config_, save_path):
+    """单次完整训练，返回最佳 val L1，用于 Optuna"""
+    global config, log, writer
+    config = config_
+    log, writer = utils.set_save_path(save_path)
+
+    train_loader, val_loader = make_data_loaders()
+    model, optimizer, epoch_start, lr_scheduler = prepare_training()
+
+    loss_fn = nn.L1Loss()
+    best_val = 1e18
+
+    for epoch in range(epoch_start, config['epoch_max'] + 1):
+        _ = train(train_loader, model, optimizer)   # train_loss 可选打印
+        if lr_scheduler:
+            lr_scheduler.step()
+
+        val_loss = evaluate_l1(val_loader, model, loss_fn, config)
+        best_val = min(best_val, val_loss)
+
+        # ==== 可选：在终端即时打印 mini 日志 ====
+        print(f"[{save_path}] epoch {epoch}/{config['epoch_max']}  "
+              f"val_L1={val_loss:.4f} | best={best_val:.4f}")
+
+
+    return best_val
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -216,8 +270,8 @@ if __name__ == '__main__':
 
     os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    with open(args.config, 'r') as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    with io.open(args.config, 'r', encoding='utf-8-sig') as f:
+        config = yaml.safe_load(f)
         print('config loaded.')
 
     save_name = args.name
