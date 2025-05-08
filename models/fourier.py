@@ -8,7 +8,7 @@ class FourierMapping(nn.Module):
     把 2-D 坐标 (x,y) → 2*K 维正余弦特征：
         γ(x,y) = [sin(2πf1x),cos(2πf1x), … , sin(2πfK y),cos(2πfK y)]
     """
-    def __init__(self, num_bands=6, base_freq=1.0):
+    def __init__(self, num_bands=5, base_freq=1.0):
         super().__init__()
         # 频率序列：base, 2*base, 4*base, ...
         freqs = base_freq * (2.0 ** torch.arange(num_bands))  # (K,)
