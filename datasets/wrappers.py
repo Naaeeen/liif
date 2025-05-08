@@ -2,6 +2,7 @@ import functools
 import random
 import math
 from PIL import Image
+from kornia.filters import gaussian_blur2d   # ☆ 新增
 
 import numpy as np
 import torch
@@ -111,7 +112,9 @@ class SRImplicitDownsampled(Dataset):
             w_lr = math.floor(img.shape[-1] / s + 1e-9)
             img = img[:, :round(h_lr * s), :round(w_lr * s)] # assume round int
             img_down = resize_fn(img, (h_lr, w_lr))
-            crop_lr, crop_hr = img_down, img
+
+            crop_lr = gaussian_blur2d(img_down, (3, 3), (0.6, 0.6))  # ☆ AA 滤波
+            crop_hr = img
         else:
             w_lr = self.inp_size
             w_hr = round(w_lr * s)
@@ -119,6 +122,7 @@ class SRImplicitDownsampled(Dataset):
             y0 = random.randint(0, img.shape[-1] - w_hr)
             crop_hr = img[:, x0: x0 + w_hr, y0: y0 + w_hr]
             crop_lr = resize_fn(crop_hr, w_lr)
+            crop_lr = gaussian_blur2d(crop_lr, (3, 3), (0.6, 0.6))  # ☆ AA 滤波
 
         if self.augment:
             hflip = random.random() < 0.5
@@ -206,28 +210,3 @@ class SRImplicitUniformVaried(Dataset):
             'cell': cell,
             'gt': hr_rgb
         }
-# ------------------------------------------------------------
-#  A pass‑through wrapper for single‑image INR training
-# ------------------------------------------------------------
-from torch.utils.data import Dataset
-from datasets import register
-
-@register('sr-implicit-uniform-random')
-class SRImplicitUniformRandom(Dataset):
-    """
-    A minimal wrapper that simply forwards the dictionary returned
-    by an underlying dataset (e.g., 'single-npy').
-    It exists only so the YAML field 'wrapper: sr-implicit-uniform-random'
-    can be resolved by datasets.make().
-    """
-
-    def __init__(self, dataset, **kwargs):
-        # kwargs kept for compatibility but unused
-        self.dataset = dataset
-
-    def __len__(self):
-        return len(self.dataset)  # usually 1 for single-image
-
-    def __getitem__(self, idx):
-        # underlying dataset already provides {'inp','coord','cell','gt'}
-        return self.dataset[idx]
