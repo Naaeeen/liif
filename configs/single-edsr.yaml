@@ -10,7 +10,7 @@ train_dataset:
     name: image-folder
     args:
       root_path: data/single/test           # <-- put YOUR_IMAGE.png here
-      repeat: 200                    # repeat to simulate “large” dataset
+      repeat: 198                    # repeat to simulate “large” dataset
       cache: in_memory                # load once into RAM (fast, only one image)
   wrapper:
     name: sr-implicit-downsampled
@@ -58,12 +58,12 @@ model:
 optimizer:
   name: adam
   args:
-    lr: 1.e-4                         # same as official example
+    lr: 4.9720128960410627e-05                      # same as official example
 
-epoch_max: 50                      # ≈1000 × 1 batch × repeat(1000) = 1 M steps
+epoch_max: 73                      # ≈1000 × 1 batch × repeat(1000) = 1 M steps
 multi_step_lr:
-  milestones: [10,20,30,40]   # decay at 20 % / 40 % / 60 % / 80 %
-  gamma: 0.7
+  milestones: [28,40,53,64,69]   # decay at 20 % / 40 % / 60 % / 80 %
+  gamma: 0.75
 
 ################################# Book‑keeping #################################
 epoch_val: 1                      # no val set

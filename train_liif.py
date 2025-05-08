@@ -24,7 +24,9 @@
 import argparse
 import io
 import os
+from collections import deque
 
+import optuna
 import yaml
 import torch
 import torch.nn as nn
@@ -231,8 +233,15 @@ def evaluate_l1(val_loader, model, loss_fn, config):
     return val_loss.item()
 
 
-def run_once(config_, save_path):
-    """单次完整训练，返回最佳 val L1，用于 Optuna"""
+
+def run_once(config_, save_path, trial=None):
+    """
+    单次完整训练：
+    - 训练 epoch_max 轮；
+    - 在每轮结束后计算 val_L1；
+    - 用最近 5 轮平均 tail_avg 作为最终分数，也把 tail_avg 上报给 Optuna；
+    - 如果使用剪枝器，trial.should_prune() 会在 tail_avg 很差时提前停止。
+    """
     global config, log, writer
     config = config_
     log, writer = utils.set_save_path(save_path)
@@ -240,24 +249,29 @@ def run_once(config_, save_path):
     train_loader, val_loader = make_data_loaders()
     model, optimizer, epoch_start, lr_scheduler = prepare_training()
 
-    loss_fn = nn.L1Loss()
-    best_val = 1e18
+    loss_fn   = nn.L1Loss()
+    tail_vals = deque(maxlen=5)          # 保存最近 5 个 val_loss
 
     for epoch in range(epoch_start, config['epoch_max'] + 1):
-        _ = train(train_loader, model, optimizer)   # train_loss 可选打印
+        _ = train(train_loader, model, optimizer)
         if lr_scheduler:
             lr_scheduler.step()
 
         val_loss = evaluate_l1(val_loader, model, loss_fn, config)
-        best_val = min(best_val, val_loss)
+        tail_vals.append(val_loss)
+        tail_avg = sum(tail_vals) / len(tail_vals)
 
-        # ==== 可选：在终端即时打印 mini 日志 ====
+        # ── 向 Optuna 上报最近 5 轮平均 ──
+        if trial is not None:
+            trial.report(tail_avg, step=epoch)
+            if trial.should_prune():
+                print(f"[{save_path}] Trial pruned at epoch {epoch}, tail_avg={tail_avg:.4f}")
+                raise optuna.TrialPruned()
+
         print(f"[{save_path}] epoch {epoch}/{config['epoch_max']}  "
-              f"val_L1={val_loss:.4f} | best={best_val:.4f}")
+              f"val_L1={val_loss:.4f} | tail_avg={tail_avg:.4f}")
 
-
-    return best_val
-
+    return tail_avg      # 以最后 5 轮平均作为 Trial 的最终评分
 
 
 if __name__ == '__main__':
