@@ -24,7 +24,9 @@
 import argparse
 import io
 import os
+from collections import deque
 
+import optuna
 import yaml
 import torch
 import torch.nn as nn
@@ -36,18 +38,7 @@ import datasets
 import models
 import utils
 from test import eval_psnr
-import torch
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.enabled = True
 
-
-
-print("PyTorch version:", torch.__version__)
-print("CUDA available:", torch.cuda.is_available())
-print("CUDA device count:", torch.cuda.device_count())
-if torch.cuda.is_available():
-    print("Current CUDA device index:", torch.cuda.current_device())
-    print("CUDA device name:", torch.cuda.get_device_name(0))
 
 def make_data_loader(spec, tag=''):
     if spec is None:
@@ -61,7 +52,7 @@ def make_data_loader(spec, tag=''):
         log('  {}: shape={}'.format(k, tuple(v.shape)))
 
     loader = DataLoader(dataset, batch_size=spec['batch_size'],
-        shuffle=(tag == 'train'), num_workers=0, pin_memory=True)
+        shuffle=(tag == 'train'), num_workers=8, pin_memory=True)
     return loader
 
 
@@ -75,18 +66,8 @@ def prepare_training():
     if config.get('resume') is not None:
         sv_file = torch.load(config['resume'])
         model = models.make(sv_file['model'], load_sd=True).cuda()
-
-        if hasattr(model, 'encoder'):
-            for p in model.encoder.parameters():
-                p.requires_grad = False
-
-        # optimizer = utils.make_optimizer(
-        #     model.parameters(), sv_file['optimizer'], load_sd=True)
         optimizer = utils.make_optimizer(
-            filter(lambda p: p.requires_grad, model.parameters()), sv_file['optimizer'], load_sd=True)
-
-
-
+            model.parameters(), sv_file['optimizer'], load_sd=True)
         epoch_start = sv_file['epoch'] + 1
         if config.get('multi_step_lr') is None:
             lr_scheduler = None
@@ -96,26 +77,8 @@ def prepare_training():
             lr_scheduler.step()
     else:
         model = models.make(config['model']).cuda()
-
-        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        # FREEZE ENCODER (EDSR)  —— 7 行核心代码
-        if hasattr(model, 'encoder'):  # 保险：确认模型有 encoder
-            for p in model.encoder.parameters():  # 冻结所有卷积层权重
-                p.requires_grad = False
-        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-
-
-
-        # optimizer = utils.make_optimizer(
-        #     model.parameters(), config['optimizer'])
         optimizer = utils.make_optimizer(
-            filter(lambda p: p.requires_grad, model.parameters()),  # ★★ 替换
-            config['optimizer'])
-
-
-
-
+            model.parameters(), config['optimizer'])
         epoch_start = 1
         if config.get('multi_step_lr') is None:
             lr_scheduler = None
@@ -123,14 +86,6 @@ def prepare_training():
             lr_scheduler = MultiStepLR(optimizer, **config['multi_step_lr'])
 
     log('model: #params={}'.format(utils.compute_num_params(model, text=True)))
-
-
-
-    tot_freeze = sum(p.numel() for p in model.parameters() if not p.requires_grad)
-    tot_train = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f'Frozen params: {tot_freeze:,}, Trainable params: {tot_train:,}')
-
-
     return model, optimizer, epoch_start, lr_scheduler
 
 
@@ -252,6 +207,71 @@ def main(config_, save_path):
 
         log(', '.join(log_info))
         writer.flush()
+
+def evaluate_l1(val_loader, model, loss_fn, config):
+    """仅前向传播，返回整个 val_loader 的平均 L1 loss"""
+    model.eval()
+    val_loss = utils.Averager()
+
+    # 准备归一化用的张量
+    dn = config['data_norm']
+    inp_sub = torch.FloatTensor(dn['inp']['sub']).view(1, -1, 1, 1).cuda()
+    inp_div = torch.FloatTensor(dn['inp']['div']).view(1, -1, 1, 1).cuda()
+    gt_sub  = torch.FloatTensor(dn['gt']['sub']).view(1, 1, -1).cuda()
+    gt_div  = torch.FloatTensor(dn['gt']['div']).view(1, 1, -1).cuda()
+
+    with torch.no_grad():
+        for batch in val_loader:
+            for k, v in batch.items():
+                batch[k] = v.cuda()
+
+            inp  = (batch['inp'] - inp_sub) / inp_div
+            pred = model(inp, batch['coord'], batch['cell'])
+            gt   = (batch['gt'] - gt_sub) / gt_div
+            val_loss.add(loss_fn(pred, gt).item())
+
+    return val_loss.item()
+
+
+
+def run_once(config_, save_path, trial=None):
+    """
+    单次完整训练：
+    - 训练 epoch_max 轮；
+    - 在每轮结束后计算 val_L1；
+    - 用最近 5 轮平均 tail_avg 作为最终分数，也把 tail_avg 上报给 Optuna；
+    - 如果使用剪枝器，trial.should_prune() 会在 tail_avg 很差时提前停止。
+    """
+    global config, log, writer
+    config = config_
+    log, writer = utils.set_save_path(save_path)
+
+    train_loader, val_loader = make_data_loaders()
+    model, optimizer, epoch_start, lr_scheduler = prepare_training()
+
+    loss_fn   = nn.L1Loss()
+    tail_vals = deque(maxlen=5)          # 保存最近 5 个 val_loss
+
+    for epoch in range(epoch_start, config['epoch_max'] + 1):
+        _ = train(train_loader, model, optimizer)
+        if lr_scheduler:
+            lr_scheduler.step()
+
+        val_loss = evaluate_l1(val_loader, model, loss_fn, config)
+        tail_vals.append(val_loss)
+        tail_avg = sum(tail_vals) / len(tail_vals)
+
+        # ── 向 Optuna 上报最近 5 轮平均 ──
+        if trial is not None:
+            trial.report(tail_avg, step=epoch)
+            if trial.should_prune():
+                print(f"[{save_path}] Trial pruned at epoch {epoch}, tail_avg={tail_avg:.4f}")
+                raise optuna.TrialPruned()
+
+        print(f"[{save_path}] epoch {epoch}/{config['epoch_max']}  "
+              f"val_L1={val_loss:.4f} | tail_avg={tail_avg:.4f}")
+
+    return tail_avg      # 以最后 5 轮平均作为 Trial 的最终评分
 
 
 if __name__ == '__main__':

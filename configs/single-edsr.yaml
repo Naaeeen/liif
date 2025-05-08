@@ -56,5 +56,7 @@ multi_step_lr:
   milestones: [45,82]
   gamma: 0.7802681709500043
 
+edge_weight: 0.05
+
 epoch_val: 1
 epoch_save: 20

@@ -26,6 +26,12 @@ import io
 import os
 from collections import deque
 
+import torch
+import torch.nn as nn
+from tqdm import tqdm
+from kornia.filters import Sobel  # ☆ 需要 pip install kornia
+
+
 import optuna
 import yaml
 import torch
@@ -89,31 +95,62 @@ def prepare_training():
     return model, optimizer, epoch_start, lr_scheduler
 
 
-def train(train_loader, model, optimizer):
+def train(train_loader, model, optimizer, config):
+    """Train one epoch with pixel‑L1 + edge‑aware (Sobel) L1.
+
+    Args:
+        train_loader: DataLoader yielding LIIF batches
+        model: the neural network
+        optimizer: optimizer instance
+        config: dict, must contain
+            data_norm   ‑ inp/gt norm tensors
+            edge_weight ‑ lambda for edge loss (float, 0 → pure L1)
+    Returns:
+        float: averaged total loss of this epoch
+    """
+
     model.train()
-    loss_fn = nn.L1Loss()
+    l1_loss = nn.L1Loss()
+    sobel = Sobel().cuda()                 # (B,2,H,W) gradients
+    edge_w = float(config.get('edge_weight', 0.0))
+
     train_loss = utils.Averager()
 
-    data_norm = config['data_norm']
-    t = data_norm['inp']
-    inp_sub = torch.FloatTensor(t['sub']).view(1, -1, 1, 1).cuda()
-    inp_div = torch.FloatTensor(t['div']).view(1, -1, 1, 1).cuda()
-    t = data_norm['gt']
-    gt_sub = torch.FloatTensor(t['sub']).view(1, 1, -1).cuda()
-    gt_div = torch.FloatTensor(t['div']).view(1, 1, -1).cuda()
+    # ── prepare normalization tensors once per epoch ──
+    dn = config['data_norm']
+    i_sub = torch.FloatTensor(dn['inp']['sub']).view(1, -1, 1, 1).cuda()
+    i_div = torch.FloatTensor(dn['inp']['div']).view(1, -1, 1, 1).cuda()
+    g_sub = torch.FloatTensor(dn['gt']['sub']).view(1, 1, -1).cuda()
+    g_div = torch.FloatTensor(dn['gt']['div']).view(1, 1, -1).cuda()
 
-    for batch in tqdm(train_loader, leave=False, desc='train'):
+    for batch in tqdm(train_loader, desc="train", leave=False):
+        # to GPU
         for k, v in batch.items():
             batch[k] = v.cuda()
 
-        inp = (batch['inp'] - inp_sub) / inp_div
-        pred = model(inp, batch['coord'], batch['cell'])
+        inp  = (batch['inp'] - i_sub) / i_div          # (B,3,h,w)
+        pred = model(inp, batch['coord'], batch['cell'])  # (B,Q,3)
+        gt   = (batch['gt'] - g_sub) / g_div            # (B,Q,3)
 
-        gt = (batch['gt'] - gt_sub) / gt_div
-        loss = loss_fn(pred, gt)
+        # ① pixel L1
+        loss_pix = l1_loss(pred, gt)
 
+        # ② edge L1 (可选)
+        if edge_w > 1e-8:
+            B, Q, _ = pred.shape
+            H = W = int(Q ** 0.5)                      # assume square patch
+            pred_img = pred.view(B, H, W, 3).permute(0, 3, 1, 2)  # (B,3,H,W)
+            gt_img   = gt  .view(B, H, W, 3).permute(0, 3, 1, 2)
+
+            edge_pred = sobel(pred_img)
+            edge_gt   = sobel(gt_img)
+            loss_edge = l1_loss(edge_pred, edge_gt)
+            loss = loss_pix + edge_w * loss_edge
+        else:
+            loss = loss_pix
+
+        # ── backward & update ──
         train_loss.add(loss.item())
-
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
