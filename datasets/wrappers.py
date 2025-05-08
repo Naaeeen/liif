@@ -113,7 +113,8 @@ class SRImplicitDownsampled(Dataset):
             img = img[:, :round(h_lr * s), :round(w_lr * s)] # assume round int
             img_down = resize_fn(img, (h_lr, w_lr))
 
-            crop_lr = gaussian_blur2d(img_down, (3, 3), (0.6, 0.6))  # ☆ AA 滤波
+            crop_lr  = gaussian_blur2d(img_down.unsqueeze(0), (3,3), (0.6,0.6)).squeeze(0)
+
             crop_hr = img
         else:
             w_lr = self.inp_size
@@ -122,7 +123,7 @@ class SRImplicitDownsampled(Dataset):
             y0 = random.randint(0, img.shape[-1] - w_hr)
             crop_hr = img[:, x0: x0 + w_hr, y0: y0 + w_hr]
             crop_lr = resize_fn(crop_hr, w_lr)
-            crop_lr = gaussian_blur2d(crop_lr, (3, 3), (0.6, 0.6))  # ☆ AA 滤波
+            crop_lr = gaussian_blur2d(crop_lr.unsqueeze(0), (3,3), (0.6,0.6)).squeeze(0)
 
         if self.augment:
             hflip = random.random() < 0.5

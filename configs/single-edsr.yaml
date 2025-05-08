@@ -2,7 +2,7 @@ train_dataset:
   dataset:
     name: image-folder
     args:
-      root_path: data/single/test
+      root_path: data/single/train
       repeat: 186
       cache: in_memory
   wrapper:

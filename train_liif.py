@@ -95,7 +95,7 @@ def prepare_training():
     return model, optimizer, epoch_start, lr_scheduler
 
 
-def train(train_loader, model, optimizer, config):
+def train(train_loader, model, optimizer):
     """Train one epoch with pixel‑L1 + edge‑aware (Sobel) L1.
 
     Args:
