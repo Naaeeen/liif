@@ -1,25 +1,18 @@
-# =============================================================================
-#  Single‑image LIIF  (EDSR‑baseline encoder + MLP imnet)
-#  • One HR image placed in data/single/
-#  • Wrapper ‘sr‑implicit‑downsampled’ does random down‑sampling / coord sampling
-# =============================================================================
-
-################################ Data Setup ###################################
 train_dataset:
   dataset:
     name: image-folder
     args:
-      root_path: data/single/test           # <-- put YOUR_IMAGE.png here
-      repeat: 200                    # repeat to simulate “large” dataset
-      cache: in_memory                # load once into RAM (fast, only one image)
+      root_path: data/single/test
+      repeat: 186
+      cache: in_memory
   wrapper:
     name: sr-implicit-downsampled
     args:
-      inp_size: 48                    # random 48×48 HR patches fed into encoder
-      scale_max: 4                    # train with x1…x4 down‑sampling
-      augment: true                   # flip & rot on‑the‑fly
-      sample_q: 2304                  # #coords sampled for MLP per step
-  batch_size: 2                       # one HR image per batch (patch‑based)
+      inp_size: 48
+      scale_max: 4
+      augment: true
+      sample_q: 2304
+  batch_size: 2
 
 val_dataset:
   dataset:
@@ -40,31 +33,28 @@ data_norm:
   inp: {sub: [0.5], div: [0.5]}
   gt:  {sub: [0.5], div: [0.5]}
 
-################################ Model Definition ##############################
 model:
   name: liif
   args:
     encoder_spec:
       name: edsr-baseline
       args:
-        no_upsampling: true           # feature extractor only
+        no_upsampling: true
     imnet_spec:
       name: mlp
       args:
         out_dim: 3
         hidden_list: [256, 256, 256, 256]
 
-############################### Optimizer & LR #################################
 optimizer:
   name: adam
   args:
-    lr: 1.e-4                         # same as official example
+    lr: 0.00011213926735855899
 
-epoch_max: 50                      # ≈1000 × 1 batch × repeat(1000) = 1 M steps
+epoch_max: 94
 multi_step_lr:
-  milestones: [10,20,30,40]   # decay at 20 % / 40 % / 60 % / 80 %
-  gamma: 0.7
+  milestones: [45,82]
+  gamma: 0.7802681709500043
 
-################################# Book‑keeping #################################
-epoch_val: 1                      # no val set
-epoch_save: 20                      # save every 100 epochs (~100 k steps)
+epoch_val: 1
+epoch_save: 20
