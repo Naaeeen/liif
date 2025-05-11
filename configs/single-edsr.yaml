@@ -2,8 +2,8 @@ train_dataset:
   dataset:
     name: image-folder
     args:
-      root_path: data/single/train
-      repeat: 186
+      root_path: ./data/train
+      repeat: 20
       cache: in_memory
   wrapper:
     name: sr-implicit-downsampled
@@ -11,15 +11,16 @@ train_dataset:
       inp_size: 48
       scale_max: 4
       augment: true
-      sample_q: 2304
-  batch_size: 2
+#      sample_q: 4096
+  batch_size: 8
 
 val_dataset:
   dataset:
     name: image-folder
     args:
-      root_path: data/single/valid
-      repeat: 10
+      root_path: ./data/valid
+      first_k: 4
+      repeat: 80
       cache: in_memory
   wrapper:
     name: sr-implicit-downsampled
@@ -27,7 +28,7 @@ val_dataset:
       inp_size: 48
       scale_max: 4
       sample_q: 2304
-  batch_size: 2
+  batch_size: 8
 
 data_norm:
   inp: {sub: [0.5], div: [0.5]}
@@ -49,14 +50,14 @@ model:
 optimizer:
   name: adam
   args:
-    lr: 0.00011213926735855899
+    lr: 1.e-4
 
-epoch_max: 94
+epoch_max: 1000
 multi_step_lr:
-  milestones: [45,82]
-  gamma: 0.7802681709500043
+  milestones: [200, 400, 600, 800]
+  gamma: 0.5
 
-edge_weight: 0.05
+#edge_weight: 0.05
 
 epoch_val: 1
-epoch_save: 20
+epoch_save: 100

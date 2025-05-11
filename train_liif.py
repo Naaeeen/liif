@@ -113,6 +113,8 @@ def train(train_loader, model, optimizer):
     l1_loss = nn.L1Loss()
     sobel = Sobel().cuda()                 # (B,2,H,W) gradients
     edge_w = float(config.get('edge_weight', 0.0))
+    # print(f"[Train] edge_weight = {edge_w}")
+
 
     train_loss = utils.Averager()
 
@@ -145,7 +147,12 @@ def train(train_loader, model, optimizer):
             edge_pred = sobel(pred_img)
             edge_gt   = sobel(gt_img)
             loss_edge = l1_loss(edge_pred, edge_gt)
+            #
+            # edge_term = edge_w * loss_edge
+            # print(f"[Train] edge_term = edge_weight * loss_edge = {edge_term.item()}")
+
             loss = loss_pix + edge_w * loss_edge
+
         else:
             loss = loss_pix
 

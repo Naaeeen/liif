@@ -2,7 +2,7 @@ test_dataset:
   dataset:
     name: paired-image-folders
     args:
-      root_path_1: output/
+      root_path_1: output/test
       root_path_2: data/single/test
   wrapper:
     name: sr-implicit-paired

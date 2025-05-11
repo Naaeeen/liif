@@ -2,7 +2,7 @@ import os
 from PIL import Image
 
 # 1. 配置路径
-input_dir  = r"C:\Users\lizhi\Downloads\liif-main\liif\data\single\valid"
+input_dir  = r"C:\Users\lizhi\Downloads\liif-main\liif\data\single\test"
 output_dir = r"C:\Users\lizhi\Downloads\liif-main\liif\outputs"
 os.makedirs(output_dir, exist_ok=True)
 
