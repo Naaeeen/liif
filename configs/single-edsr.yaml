@@ -11,7 +11,7 @@ train_dataset:
       inp_size: 48
       scale_max: 4
       augment: true
-#      sample_q: 4096
+      sample_q: 2304
   batch_size: 8
 
 val_dataset:
@@ -52,12 +52,12 @@ optimizer:
   args:
     lr: 1.e-4
 
-epoch_max: 1000
+epoch_max: 250
 multi_step_lr:
-  milestones: [200, 400, 600, 800]
+  milestones: [50, 100, 150, 200]
   gamma: 0.5
 
-#edge_weight: 0.05
+edge_weight: 0.1
 
 epoch_val: 1
-epoch_save: 100
+epoch_save: 25

@@ -8,6 +8,10 @@ import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from PIL import Image
+import numpy as np
+
+
 import datasets
 import models
 import utils
@@ -28,8 +32,22 @@ def batched_predict(model, inp, coord, cell, bsize):
     return pred
 
 
+def _save_tensor_img(tensor, path):
+    """把 [0,1] 范围的 Tensor(C,H,W) 或 (H,W,C) 保存成 PNG"""
+    arr = tensor.detach().cpu().clamp(0,1).numpy()
+    # 如果是 (C,H,W) 就转为 (H,W,C)
+    if arr.ndim == 3 and arr.shape[0] in (1,3):
+        arr = np.transpose(arr, (1,2,0))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    Image.fromarray((arr*255).astype(np.uint8)).save(path)
+
 def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None,
               verbose=False):
+    OUT_ROOT = "outputs"
+    import os
+    os.makedirs(OUT_ROOT, exist_ok=True)
+
+
     model.eval()
 
     if data_norm is None:
@@ -58,7 +76,7 @@ def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None,
     val_res = utils.Averager()
 
     pbar = tqdm(loader, leave=False, desc='val')
-    for batch in pbar:
+    for i, batch in enumerate(pbar):
         for k, v in batch.items():
             batch[k] = v.cuda()
 
@@ -84,8 +102,17 @@ def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None,
         res = metric_fn(pred, batch['gt'])
         val_res.add(res.item(), inp.shape[0])
 
+
+        for b in range(pred.size(0)):
+            sub = f"sample_{i}_{b}"
+            gt_path = os.path.join(OUT_ROOT, sub, "GT.png")
+            sr_path = os.path.join(OUT_ROOT, sub, "SR.png")
+            _save_tensor_img(batch['gt'][b], gt_path)
+            _save_tensor_img(pred[b], sr_path)
+
         if verbose:
             pbar.set_description('val {:.4f}'.format(val_res.item()))
+
 
     return val_res.item()
 

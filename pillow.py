@@ -7,7 +7,7 @@ output_dir = r"C:\Users\lizhi\Downloads\liif-main\liif\outputs"
 os.makedirs(output_dir, exist_ok=True)
 
 # 2. 目标分辨率
-target_w, target_h = 2808, 1872
+target_w, target_h = 1404, 936
 
 # 3. 三种插值方法
 methods = {

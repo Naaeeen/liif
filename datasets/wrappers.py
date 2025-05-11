@@ -3,6 +3,8 @@ import random
 import math
 from PIL import Image
 import torch.nn.functional as F
+from kornia.filters import gaussian_blur2d   # ☆ 新增
+
 
 import numpy as np
 import torch
@@ -112,7 +114,14 @@ class SRImplicitDownsampled(Dataset):
             w_lr = math.floor(img.shape[-1] / s + 1e-9)
             img = img[:, :round(h_lr * s), :round(w_lr * s)] # assume round int
             img_down = resize_fn(img, (h_lr, w_lr))
-            crop_lr, crop_hr = img_down, img
+
+
+
+            # crop_lr, crop_hr = img_down, img
+            crop_lr  = gaussian_blur2d(img_down.unsqueeze(0), (3,3), (0.6,0.6)).squeeze(0)
+            crop_hr = img
+
+
 
 
         else:
@@ -122,6 +131,12 @@ class SRImplicitDownsampled(Dataset):
             y0 = random.randint(0, img.shape[-1] - w_hr)
             crop_hr = img[:, x0: x0 + w_hr, y0: y0 + w_hr]
             crop_lr = resize_fn(crop_hr, w_lr)
+
+
+
+            crop_lr = gaussian_blur2d(crop_lr.unsqueeze(0), (3,3), (0.6,0.6)).squeeze(0)
+
+
 
 
         if self.augment:
