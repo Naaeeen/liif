@@ -21,10 +21,12 @@ class LIIF(nn.Module):
         self.encoder = models.make(encoder_spec)
 
 
-        # ------ 新增 ↓ ------
+
+        # ------ Added: Fourier feature mapping ------
         self.fourier = FourierMapping(num_bands=6, base_freq=1.0)
-        self.fmap_dim = 2 * 6 * 2      # 2坐标 * num_bands * sincos
-        # --------------------
+        self.fmap_dim = 2 * 6 * 2  # 2 coordinates (x, y) × num_bands × [sin, cos]
+        # -------------------------------------------
+
 
 
 
@@ -35,9 +37,11 @@ class LIIF(nn.Module):
 
 
             # imnet_in_dim += 2 # attach coord
-            # ============ 修改 ↓ ============
-            imnet_in_dim += self.fmap_dim   # 用 Fourier 特征替代原始 (x,y)
-            # ============ 修改 ↑ ============
+            # ============ Modification ↓ ============
+            imnet_in_dim += self.fmap_dim  # Use Fourier features to replace raw (x, y) coordinates
+            # ============ Modification ↑ ============
+
+
 
             if self.cell_decode:
                 imnet_in_dim += 2
@@ -97,10 +101,16 @@ class LIIF(nn.Module):
                 rel_coord[:, :, 0] *= feat.shape[-2]
                 rel_coord[:, :, 1] *= feat.shape[-1]
 
+
+
                 # inp = torch.cat([q_feat, rel_coord], dim=-1)
-                # 新版 —— 先做 Fourier，再拼
-                fourier_feat = self.fourier(rel_coord)  # (B,N, fmap_dim)
+                # ============ Modification ↓ ============
+                # Updated version — apply Fourier mapping to rel_coord before concatenation
+                fourier_feat = self.fourier(rel_coord)  # (B, N, fmap_dim)
                 inp = torch.cat([q_feat, fourier_feat], dim=-1)
+                # ============ Modification ↑ ============
+
+
 
                 if self.cell_decode:
                     rel_cell = cell.clone()

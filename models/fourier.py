@@ -5,19 +5,28 @@ import torch.nn as nn
 
 class FourierMapping(nn.Module):
     """
-    把 2-D 坐标 (x,y) → 2*K 维正余弦特征：
-        γ(x,y) = [sin(2πf1x),cos(2πf1x), … , sin(2πfK y),cos(2πfK y)]
+    Fourier Feature Mapping for 2D Coordinates
+
+    Given 2D coordinates (x, y), this module encodes them into a higher-dimensional
+    space using a bank of sinusoidal functions at exponentially increasing frequencies.
+
+    The output embedding is:
+        γ(x, y) = [
+            sin(π f₁ x), cos(π f₁ x), ..., sin(π f_K x), cos(π f_K x),
+            sin(π f₁ y), cos(π f₁ y), ..., sin(π f_K y), cos(π f_K y)
+        ]
+
+    This is used to mitigate the spectral bias of coordinate-based MLPs
+    and helps the network better learn high-frequency details.
     """
     def __init__(self, num_bands=5, base_freq=1.0):
         super().__init__()
-        # 频率序列：base, 2*base, 4*base, ...
-        freqs = base_freq * (2.0 ** torch.arange(num_bands))  # (K,)
-        self.register_buffer('freqs', freqs)  # 不参与梯度更新
+        freqs = base_freq * (2.0 ** torch.arange(num_bands))
+        self.register_buffer('freqs', freqs)# Register as non-trainable buffer
 
     def forward(self, coord):
-        # coord 形状 (B, N, 2) ，值域已在 [-1,1]
         out = []
         for f in self.freqs:
-            out.append(torch.sin(coord * f * math.pi))  # *2π 亦可
+            out.append(torch.sin(coord * f * math.pi))
             out.append(torch.cos(coord * f * math.pi))
-        return torch.cat(out, dim=-1)  # (B, N, 2*K)
+        return torch.cat(out, dim=-1)

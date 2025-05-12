@@ -1,3 +1,11 @@
+"""
+Image Tiling Script (4x4 Grid) with Quadrant Separation
+
+This script splits a single input image into a 4×4 grid of tiles (16 total),
+and categorizes the tiles based on their position:
+- The 2×2 **bottom-right quadrant** (lower-right 4 tiles) is saved into one folder.
+- All **other tiles** (12 tiles) are saved into another folder.
+"""
 import os
 from PIL import Image
 

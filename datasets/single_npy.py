@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from .datasets import register          # <- 必须从当前包引入注册器
 
-@register('single-npy')                 # 名称必须与 YAML 完全一致
+@register('single-npy')
 class SingleNpyDataset(Dataset):
     """
     Dataset that loads a single image (img.npy) and its coordinate grid (coord.npy)

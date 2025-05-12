@@ -33,13 +33,12 @@ def batched_predict(model, inp, coord, cell, bsize):
 
 
 def _save_tensor_img(tensor, path):
-    """把 [0,1] 范围的 Tensor(C,H,W) 或 (H,W,C) 保存成 PNG"""
     arr = tensor.detach().cpu().clamp(0,1).numpy()
-    # 如果是 (C,H,W) 就转为 (H,W,C)
     if arr.ndim == 3 and arr.shape[0] in (1,3):
         arr = np.transpose(arr, (1,2,0))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     Image.fromarray((arr*255).astype(np.uint8)).save(path)
+
 
 def eval_psnr(loader, model, data_norm=None, eval_type=None, eval_bsize=None,
               verbose=False):

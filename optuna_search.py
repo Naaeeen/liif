@@ -6,11 +6,34 @@ from optuna.pruners import HyperbandPruner
 from optuna.samplers import TPESampler
 
 from train_liif import run_once
+"""
+Optuna Hyperparameter Optimization for LIIF Super-Resolution Model
 
-# ============ 全局设置 ============ #
-BASE_YAML  = 'configs/single-edsr.yaml'  # 基础配置
-N_TRIALS   = 40                          # 搜索次数
-TIMEOUT_S  = 3600                        # 最长 2 h
+This script performs automated hyperparameter optimization (HPO) for the LIIF
+(super-resolution) model using Optuna. It leverages a base YAML config file 
+and dynamically overrides key hyperparameters such as learning rate, training 
+epochs, repeat count, and learning rate decay schedule.
+
+The optimization loop:
+- Samples hyperparameters using a TPE sampler.
+- Applies early stopping via Hyperband pruning.
+- Runs one training session per trial via `run_once`.
+- Tracks and prints validation L1 loss per trial.
+
+Configuration:
+- Base config: configs/single-edsr.yaml
+- Trials: 40
+- Timeout: 3600 seconds
+
+Results:
+- Best parameters and best validation loss are printed at the end.
+
+"""
+# ============ Global Settings ============ #
+BASE_YAML  = 'configs/single-edsr.yaml'  # Path to base YAML config
+N_TRIALS   = 40                          # Number of Optuna trials
+TIMEOUT_S  = 3600                        # Max total run time in seconds (e.g., 1 hour)
+
 
 # ---------------------------------- #
 def objective(trial):
@@ -19,33 +42,27 @@ def objective(trial):
     if os.path.exists(save_path):
         shutil.rmtree(save_path)
 
-    # 1) 读取并深拷贝 yaml
     with io.open(BASE_YAML, 'r', encoding='utf-8-sig') as f:
         cfg = yaml.safe_load(f)
     cfg = copy.deepcopy(cfg)
 
-    # 2) 采样核心超参
     lr     = trial.suggest_float('lr', 1e-5, 3e-4, log=True)
     repeat = trial.suggest_int('repeat', 50, 200)
     epochs = trial.suggest_int('epoch_max', 20, 100)
 
-    # 3) 采样 LR 调度
     frac1 = trial.suggest_float('decay1_frac', 0.3, 0.6)
     frac2 = trial.suggest_float('decay2_frac', 0.7, 0.9)
     gamma = trial.suggest_float('gamma', 0.4, 0.8)
     m1 = max(1, int(epochs * frac1))
     m2 = max(m1 + 1, int(epochs * frac2))
 
-    # 4) 写回 cfg
     cfg['optimizer']['args']['lr'] = lr
     cfg['train_dataset']['dataset']['args']['repeat'] = repeat
     cfg['epoch_max'] = epochs
     cfg['multi_step_lr'] = {'milestones': [m1, m2], 'gamma': gamma}
 
-    # 5) 运行一次训练（run_once 已含剪枝回调）
     val_loss = run_once(cfg, save_path=save_path, trial=trial)
 
-    # 6) 记录 & 打印
     trial.set_user_attr('val_loss', val_loss)
     print(f"[Trial {trial.number:02d}] "
           f"lr={lr:.1e}, repeat={repeat}, epochs={epochs}, "
@@ -54,12 +71,11 @@ def objective(trial):
 
 
 if __name__ == '__main__':
-    # 多变量 TPE 采样器
     sampler = TPESampler(multivariate=True, group=True, seed=42)
 
-    # Hyperband 剪枝器（基于 epoch 数）
-    # 这里 max_resource 在每个 trial 内自动设置：等于采样到的 epochs
-    pruner = HyperbandPruner(min_resource=5,  # 至少跑 5 轮后才比较
+    # Use Hyperband pruner (based on epoch count)
+    # max_resource will be set dynamically per trial (equal to sampled epochs)
+    pruner = HyperbandPruner(min_resource=5,  #  Start pruning after at least 5 epochs
                              reduction_factor=3)
 
     study = optuna.create_study(direction='minimize',

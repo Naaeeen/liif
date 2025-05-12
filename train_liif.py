@@ -29,7 +29,7 @@ from collections import deque
 import torch
 import torch.nn as nn
 from tqdm import tqdm
-from kornia.filters import Sobel  # ☆ 需要 pip install kornia
+from kornia.filters import Sobel  #
 
 
 import optuna
@@ -96,29 +96,14 @@ def prepare_training():
 
 
 def train(train_loader, model, optimizer):
-    """Train one epoch with pixel‑L1 + edge‑aware (Sobel) L1.
-
-    Args:
-        train_loader: DataLoader yielding LIIF batches
-        model: the neural network
-        optimizer: optimizer instance
-        config: dict, must contain
-            data_norm   ‑ inp/gt norm tensors
-            edge_weight ‑ lambda for edge loss (float, 0 → pure L1)
-    Returns:
-        float: averaged total loss of this epoch
-    """
-
     model.train()
     l1_loss = nn.L1Loss()
-    sobel = Sobel().cuda()                 # (B,2,H,W) gradients
+    sobel = Sobel().cuda()
     edge_w = float(config.get('edge_weight', 0.0))
     # print(f"[Train] edge_weight = {edge_w}")
 
-
     train_loss = utils.Averager()
 
-    # ── prepare normalization tensors once per epoch ──
     dn = config['data_norm']
     i_sub = torch.FloatTensor(dn['inp']['sub']).view(1, -1, 1, 1).cuda()
     i_div = torch.FloatTensor(dn['inp']['div']).view(1, -1, 1, 1).cuda()
@@ -126,18 +111,17 @@ def train(train_loader, model, optimizer):
     g_div = torch.FloatTensor(dn['gt']['div']).view(1, 1, -1).cuda()
 
     for batch in tqdm(train_loader, desc="train", leave=False):
-        # to GPU
         for k, v in batch.items():
             batch[k] = v.cuda()
 
-        inp  = (batch['inp'] - i_sub) / i_div          # (B,3,h,w)
-        pred = model(inp, batch['coord'], batch['cell'])  # (B,Q,3)
-        gt   = (batch['gt'] - g_sub) / g_div            # (B,Q,3)
+        inp  = (batch['inp'] - i_sub) / i_div
+        pred = model(inp, batch['coord'], batch['cell'])
+        gt   = (batch['gt'] - g_sub) / g_div
 
-        # ① pixel L1
+        # pixel L1
         loss_pix = l1_loss(pred, gt)
 
-        # ② edge L1 (可选)
+        # edge L1
         if edge_w > 1e-8:
             B, Q, _ = pred.shape
             H = W = int(Q ** 0.5)                      # assume square patch
@@ -147,7 +131,7 @@ def train(train_loader, model, optimizer):
             edge_pred = sobel(pred_img)
             edge_gt   = sobel(gt_img)
             loss_edge = l1_loss(edge_pred, edge_gt)
-            #
+
             # edge_term = edge_w * loss_edge
             # print(f"[Train] edge_term = edge_weight * loss_edge = {edge_term.item()}")
 
@@ -156,7 +140,6 @@ def train(train_loader, model, optimizer):
         else:
             loss = loss_pix
 
-        # ── backward & update ──
         train_loss.add(loss.item())
         optimizer.zero_grad()
         loss.backward()
@@ -252,12 +235,13 @@ def main(config_, save_path):
         log(', '.join(log_info))
         writer.flush()
 
+
+
+
 def evaluate_l1(val_loader, model, loss_fn, config):
-    """仅前向传播，返回整个 val_loader 的平均 L1 loss"""
     model.eval()
     val_loss = utils.Averager()
 
-    # 准备归一化用的张量
     dn = config['data_norm']
     inp_sub = torch.FloatTensor(dn['inp']['sub']).view(1, -1, 1, 1).cuda()
     inp_div = torch.FloatTensor(dn['inp']['div']).view(1, -1, 1, 1).cuda()
@@ -280,11 +264,11 @@ def evaluate_l1(val_loader, model, loss_fn, config):
 
 def run_once(config_, save_path, trial=None):
     """
-    单次完整训练：
-    - 训练 epoch_max 轮；
-    - 在每轮结束后计算 val_L1；
-    - 用最近 5 轮平均 tail_avg 作为最终分数，也把 tail_avg 上报给 Optuna；
-    - 如果使用剪枝器，trial.should_prune() 会在 tail_avg 很差时提前停止。
+    Single full training run:
+    - Train for epoch_max epochs;
+    - Compute val_L1 after each epoch;
+    - Use the average of the last 5 epochs (tail_avg) as the final score, and report tail_avg to Optuna;
+    - If a pruner is used, trial.should_prune() will stop early when tail_avg is poor.
     """
     global config, log, writer
     config = config_
@@ -294,7 +278,7 @@ def run_once(config_, save_path, trial=None):
     model, optimizer, epoch_start, lr_scheduler = prepare_training()
 
     loss_fn   = nn.L1Loss()
-    tail_vals = deque(maxlen=5)          # 保存最近 5 个 val_loss
+    tail_vals = deque(maxlen=5)
 
     for epoch in range(epoch_start, config['epoch_max'] + 1):
         _ = train(train_loader, model, optimizer)
@@ -305,7 +289,6 @@ def run_once(config_, save_path, trial=None):
         tail_vals.append(val_loss)
         tail_avg = sum(tail_vals) / len(tail_vals)
 
-        # ── 向 Optuna 上报最近 5 轮平均 ──
         if trial is not None:
             trial.report(tail_avg, step=epoch)
             if trial.should_prune():
@@ -315,7 +298,7 @@ def run_once(config_, save_path, trial=None):
         print(f"[{save_path}] epoch {epoch}/{config['epoch_max']}  "
               f"val_L1={val_loss:.4f} | tail_avg={tail_avg:.4f}")
 
-    return tail_avg      # 以最后 5 轮平均作为 Trial 的最终评分
+    return tail_avg
 
 
 if __name__ == '__main__':
