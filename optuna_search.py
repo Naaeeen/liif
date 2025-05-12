@@ -19,13 +19,6 @@ The optimization loop:
 - Applies early stopping via Hyperband pruning.
 - Runs one training session per trial via `run_once`.
 - Tracks and prints validation L1 loss per trial.
-
-Configuration:
-- Base config: configs/single-edsr.yaml
-- Trials: 40
-- Timeout: 3600 seconds
-
-Results:
 - Best parameters and best validation loss are printed at the end.
 
 """
@@ -33,8 +26,6 @@ Results:
 BASE_YAML  = 'configs/single-edsr.yaml'  # Path to base YAML config
 N_TRIALS   = 40                          # Number of Optuna trials
 TIMEOUT_S  = 3600                        # Max total run time in seconds (e.g., 1 hour)
-
-
 # ---------------------------------- #
 def objective(trial):
     trial_id  = f"optuna_t{trial.number}"
@@ -46,6 +37,8 @@ def objective(trial):
         cfg = yaml.safe_load(f)
     cfg = copy.deepcopy(cfg)
 
+    # ============  Settings ============ #
+
     lr     = trial.suggest_float('lr', 1e-5, 3e-4, log=True)
     repeat = trial.suggest_int('repeat', 50, 200)
     epochs = trial.suggest_int('epoch_max', 20, 100)
@@ -53,6 +46,9 @@ def objective(trial):
     frac1 = trial.suggest_float('decay1_frac', 0.3, 0.6)
     frac2 = trial.suggest_float('decay2_frac', 0.7, 0.9)
     gamma = trial.suggest_float('gamma', 0.4, 0.8)
+
+    # ---------------------------------- #
+
     m1 = max(1, int(epochs * frac1))
     m2 = max(m1 + 1, int(epochs * frac2))
 
