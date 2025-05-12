@@ -6,9 +6,9 @@ test_dataset:
   wrapper:
     name: sr-implicit-downsampled
     args:
-      scale_min: 7
+      scale_min: 2
   batch_size: 1
-eval_type: benchmark-7
+eval_type: benchmark-2
 eval_bsize: 30000
 
 data_norm:

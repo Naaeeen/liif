@@ -1,0 +1,72 @@
+train_dataset:
+  dataset:
+    name: image-folder
+    args:
+      root_path: ./data/train
+      repeat: 20
+      cache: in_memory
+  wrapper:
+    name: sr-implicit-downsampled-blur
+    args:
+      inp_size: 48
+      scale_max: 4
+      augment: true
+      sample_q: 2304
+  batch_size: 8
+val_dataset:
+  dataset:
+    name: image-folder
+    args:
+      root_path: ./data/valid
+      first_k: 4
+      repeat: 80
+      cache: in_memory
+  wrapper:
+    name: sr-implicit-downsampled
+    args:
+      inp_size: 48
+      scale_max: 4
+      sample_q: 2304
+  batch_size: 8
+data_norm:
+  inp:
+    sub:
+    - 0.5
+    div:
+    - 0.5
+  gt:
+    sub:
+    - 0.5
+    div:
+    - 0.5
+model:
+  name: liif
+  args:
+    encoder_spec:
+      name: edsr-baseline
+      args:
+        no_upsampling: true
+    imnet_spec:
+      name: mlp
+      args:
+        out_dim: 3
+        hidden_list:
+        - 256
+        - 256
+        - 256
+        - 256
+optimizer:
+  name: adam
+  args:
+    lr: 0.0001
+epoch_max: 250
+multi_step_lr:
+  milestones:
+  - 50
+  - 100
+  - 150
+  - 200
+  gamma: 0.5
+edge_weight: 1
+epoch_val: 1
+epoch_save: 25
